@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import json
+import math
 from datetime import datetime
 from collections import defaultdict
 from flask import Flask, request, jsonify, render_template
@@ -81,7 +82,7 @@ def add():
         amount = 0
     customer = str(d.get("customer", "")).strip()
     product = str(d.get("product", "")).strip()
-    if not customer or not product or amount <= 0:
+    if not customer or not product or not math.isfinite(amount) or amount <= 0:
         return jsonify(error="Enter customer, product and a positive amount."), 400
     with conn() as c:
         cur = c.execute("INSERT INTO orders(customer,product,amount,status,created_at) VALUES(?,?,?,?,?)", (customer, product, amount, "Pending", datetime.utcnow().isoformat()))
