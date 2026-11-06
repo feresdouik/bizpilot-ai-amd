@@ -1,1 +1,160 @@
-const $=s=>document.querySelector(s);const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));async function load(){let d=await(await fetch("/api/summary")).json();$("#revenue").textContent=d.revenue.toFixed(2);$("#count").textContent=d.order_count;$("#pending").textContent=d.pending;$("#orders").innerHTML=d.orders.map(o=>"<tr><td>"+esc(o.customer)+"</td><td>"+esc(o.product)+"</td><td>"+o.amount.toFixed(2)+"</td><td><span class='tag "+o.status+"'>"+o.status+"</span></td><td><button data-id='"+o.id+"' data-status='"+o.status+"'>Update</button></td></tr>").join("")}$("#toggle").onclick=()=>$("#orderform").hidden=!$("#orderform").hidden;$("#orderform").onsubmit=async e=>{e.preventDefault();let r=await fetch("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});let d=await r.json();if(!r.ok)return alert(d.error);e.target.reset();e.target.hidden=true;load()};$("#orders").onclick=async e=>{let b=e.target.closest("button[data-id]");if(!b)return;let s=["Pending","Processing","Delivered","Cancelled"],v=prompt("New status: "+s.join(", "),s[(s.indexOf(b.dataset.status)+1)%4]);if(!s.includes(v))return;await fetch("/api/orders/"+b.dataset.id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:v})});load()};$("#chat").onsubmit=async e=>{e.preventDefault();let q=$("#question"),m=q.value.trim();if(!m)return;q.value="";let u=document.createElement("div");u.className="bubble user";u.textContent=m;$("#messages").append(u);let a=document.createElement("div");a.className="bubble";a.textContent="Thinking…";$("#messages").append(a);try{let r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})}),d=await r.json();a.textContent=d.reply||d.error||"No response"}catch(_){a.textContent="Connection error. Try again."}};load();
+const $ = (s) => document.querySelector(s);
+
+const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+}[c]));
+
+function renderMarkdown(markdown) {
+  const lines = String(markdown || "").replace(/\r/g, "").split("\n");
+  const html = [];
+  let listType = null;
+  let tableRows = [];
+
+  const inline = (value) => esc(value)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  const closeList = () => {
+    if (listType) {
+      html.push(listType === "ul" ? "</ul>" : "</ol>");
+      listType = null;
+    }
+  };
+
+  const flushTable = () => {
+    if (!tableRows.length) return;
+    const rows = tableRows.filter((row) => !row.every((cell) => /^\s*:?-{3,}:?\s*$/.test(cell)));
+    if (rows.length) {
+      html.push("<div class='answer-table-wrap'><table class='answer-table'><tbody>");
+      rows.forEach((row, index) => {
+        html.push("<tr>" + row.map((cell) => {
+          const tag = index === 0 ? "th" : "td";
+          return "<" + tag + ">" + inline(cell.trim()) + "</" + tag + ">";
+        }).join("") + "</tr>");
+      });
+      html.push("</tbody></table></div>");
+    }
+    tableRows = [];
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.startsWith("|") && line.endsWith("|")) {
+      closeList();
+      tableRows.push(line.slice(1, -1).split("|"));
+      continue;
+    }
+    flushTable();
+    if (!line) { closeList(); continue; }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const bullet = line.match(/^[-*]\s+(.+)$/);
+    const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+    if (heading) {
+      closeList();
+      const level = Math.min(heading[1].length + 2, 5);
+      html.push("<h" + level + ">" + inline(heading[2]) + "</h" + level + ">");
+    } else if (bullet || numbered) {
+      const nextType = bullet ? "ul" : "ol";
+      if (listType !== nextType) {
+        closeList();
+        listType = nextType;
+        html.push("<" + listType + ">");
+      }
+      html.push("<li>" + inline((bullet || numbered)[1]) + "</li>");
+    } else {
+      closeList();
+      html.push("<p>" + inline(line) + "</p>");
+    }
+  }
+  flushTable();
+  closeList();
+  return html.join("");
+}
+
+async function load() {
+  try {
+    const response = await fetch("/api/summary");
+    const data = await response.json();
+    $("#revenue").textContent = Number(data.revenue || 0).toFixed(2);
+    $("#count").textContent = data.order_count ?? 0;
+    $("#pending").textContent = data.pending ?? 0;
+    $("#orders").innerHTML = data.orders.map((o) =>
+      "<tr><td>" + esc(o.customer) + "</td><td>" + esc(o.product) +
+      "</td><td>" + Number(o.amount).toFixed(2) +
+      "</td><td><span class='tag " + esc(o.status) + "'>" + esc(o.status) +
+      "</span></td><td><button data-id='" + Number(o.id) +
+      "' data-status='" + esc(o.status) + "'>Update</button></td></tr>"
+    ).join("");
+  } catch (_) {
+    $("#orders").innerHTML = "<tr><td colspan='5'>Could not load orders. Refresh the page.</td></tr>";
+  }
+}
+
+$("#toggle").onclick = () => {
+  $("#orderform").hidden = !$("#orderform").hidden;
+};
+
+$("#orderform").onsubmit = async (event) => {
+  event.preventDefault();
+  const response = await fetch("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(Object.fromEntries(new FormData(event.target)))
+  });
+  const data = await response.json();
+  if (!response.ok) return alert(data.error || "Could not save order.");
+  event.target.reset();
+  event.target.hidden = true;
+  load();
+};
+
+$("#orders").onclick = async (event) => {
+  const button = event.target.closest("button[data-id]");
+  if (!button) return;
+  const statuses = ["Pending", "Processing", "Delivered", "Cancelled"];
+  const next = prompt("New status: " + statuses.join(", "), statuses[(statuses.indexOf(button.dataset.status) + 1) % statuses.length]);
+  if (!statuses.includes(next)) return;
+  const response = await fetch("/api/orders/" + button.dataset.id, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: next })
+  });
+  if (!response.ok) return alert("Could not update order.");
+  load();
+};
+
+$("#chat").onsubmit = async (event) => {
+  event.preventDefault();
+  const input = $("#question");
+  const message = input.value.trim();
+  if (!message) return;
+  input.value = "";
+  const userBubble = document.createElement("div");
+  userBubble.className = "bubble user";
+  userBubble.textContent = message;
+  $("#messages").append(userBubble);
+
+  const answer = document.createElement("div");
+  answer.className = "bubble assistant";
+  answer.textContent = "Thinking…";
+  $("#messages").append(answer);
+  answer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "AI service unavailable.");
+    answer.innerHTML = renderMarkdown(data.reply || "No response");
+  } catch (error) {
+    answer.textContent = error.message || "Connection error. Try again.";
+  }
+  answer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+
+load();
