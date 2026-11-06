@@ -61,7 +61,8 @@ def summarize(orders):
     delivered = [o for o in orders if o["status"] == "Delivered"]
     pipeline = [o for o in orders if o["status"] in ("Pending", "Processing")]
     cancelled = [o for o in orders if o["status"] == "Cancelled"]
-    return {"total_orders": len(orders), "delivered_orders": len(delivered), "pipeline_orders": len(pipeline), "cancelled_orders": len(cancelled), "delivered_revenue": round(sum(float(o["amount"] or 0) for o in delivered), 2), "pipeline_value": round(sum(float(o["amount"] or 0) for o in pipeline), 2), "cancelled_value": round(sum(float(o["amount"] or 0) for o in cancelled), 2), "products": products}
+    delivered_revenue = round(sum(float(o["amount"] or 0) for o in delivered), 2)
+    return {"total_orders": len(orders), "delivered_orders": len(delivered), "pipeline_orders": len(pipeline), "cancelled_orders": len(cancelled), "delivered_revenue": delivered_revenue, "average_delivered_order_value": round(delivered_revenue / len(delivered), 2) if delivered else 0, "pipeline_value": round(sum(float(o["amount"] or 0) for o in pipeline), 2), "cancelled_value": round(sum(float(o["amount"] or 0) for o in cancelled), 2), "products": products}
 
 
 @app.get("/api/summary")
