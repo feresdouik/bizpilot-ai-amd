@@ -8,6 +8,7 @@
 - Order management: add orders and update their status.
 - AI business assistant powered by Groq-hosted models.
 - Product-level analysis separates delivered revenue from pending/processing pipeline value.
+- All amounts are currently displayed and interpreted in US dollars (USD).
 - Aggregated business data is sent to the AI; customer names are not included in the AI prompt.
 - Markdown answers are rendered as readable headings, lists, and tables in the chat.
 - Demo data is inserted automatically on first launch.
@@ -49,7 +50,7 @@ $env:GROQ_MODEL="openai/gpt-oss-120b"
 - Delivered revenue counts only orders with status `Delivered`.
 - Pending and Processing amounts are shown separately as pipeline value; they are not revenue.
 - Profit, margin, return on ad spend, and stock recommendations require cost, advertising, and inventory data that this MVP does not yet collect.
-- Currency is not assumed because no currency setting is stored.
+- The prototype currently uses US dollars (USD) as its default reporting currency. This is a reporting setting, not a currency conversion.
 - SQLite is suitable for this demonstration. On hosts with ephemeral filesystems, data can reset when the service restarts or redeploys. Use a managed persistent database before production use.
 - The assistant provides analysis and recommendations only. It does not autonomously execute payments, contact customers, or modify orders through chat.
 - Do not commit API keys or real customer personal data to GitHub.
