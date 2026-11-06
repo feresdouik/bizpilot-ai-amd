@@ -77,12 +77,12 @@ async function load() {
   try {
     const response = await fetch("/api/summary");
     const data = await response.json();
-    $("#revenue").textContent = Number(data.revenue || 0).toFixed(2);
+    $("#revenue").textContent = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(data.revenue || 0));
     $("#count").textContent = data.order_count ?? 0;
     $("#pending").textContent = data.pending ?? 0;
     $("#orders").innerHTML = data.orders.map((o) =>
       "<tr><td>" + esc(o.customer) + "</td><td>" + esc(o.product) +
-      "</td><td>" + Number(o.amount).toFixed(2) +
+      "</td><td>" + new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(o.amount)) +
       "</td><td><span class='tag " + esc(o.status) + "'>" + esc(o.status) +
       "</span></td><td><button data-id='" + Number(o.id) +
       "' data-status='" + esc(o.status) + "'>Update</button></td></tr>"
