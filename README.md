@@ -1,60 +1,109 @@
 # BizPilot AI
 
-**An AI-powered business operations assistant for small businesses.** Built by NexoraForge AI for the AMD AI League.
+**An AI-powered business operations assistant that helps small businesses understand their orders, track performance, and make better day-to-day decisions.**
 
-## What it does
+Built by **NexoraForge AI** for the **AMD AI League**.
 
-- Business dashboard with delivered revenue, total orders, and orders needing attention.
-- Order management: add orders and update their status.
-- AI business assistant powered by Groq-hosted models.
-- Product-level analysis separates delivered revenue from pending/processing pipeline value.
-- All amounts are currently displayed and interpreted in US dollars (USD).
-- Aggregated business data is sent to the AI; customer names are not included in the AI prompt.
-- Markdown answers are rendered as readable headings, lists, and tables in the chat.
-- Demo data is inserted automatically on first launch.
-- Health endpoint: `/health`.
+## The problem
 
-## Tech stack
+Small businesses often manage orders manually and struggle to turn scattered order information into clear business insights. They may not know which products are generating delivered revenue, how much value is still tied up in pending orders, or which operational issues need attention.
 
-- Python, Flask, Gunicorn
-- SQLite
-- Groq API (configure `GROQ_MODEL` to a model available to your Groq account; current suggested value: `openai/gpt-oss-120b`)
-- HTML, CSS, JavaScript
+## The solution
+
+BizPilot AI brings order tracking, business metrics, and an AI assistant into one simple dashboard. It converts order records into a concise business snapshot and provides practical recommendations based on the available data.
+
+## Key features
+
+- **Business overview:** delivered revenue, total orders, orders needing attention, delivered order count, pipeline value, cancelled orders, and average delivered order value.
+- **Order management:** add orders and update order statuses from the dashboard.
+- **AI business analysis:** ask questions about business performance and receive structured summaries and recommendations.
+- **Product performance:** compare products using delivered revenue while keeping pending and processing amounts separate.
+- **Privacy-aware AI context:** aggregated business figures are sent to the AI assistant; customer names are excluded from its analysis prompt.
+- **Clear reporting:** pending and processing orders are treated as pipeline value, not delivered revenue.
+- **Demo-ready setup:** sample records are created automatically when the database is first initialized.
+- **Health check:** a `/health` endpoint is available for deployment checks.
+
+## How it works
+
+1. The user records orders and updates their statuses.
+2. BizPilot AI stores the order records in SQLite.
+3. The dashboard calculates key business indicators from those records.
+4. When the user asks a question, the application sends an aggregated business snapshot to the configured AI model.
+5. The assistant returns an explanation and practical recommendations based on the available information.
+
+## Technology stack
+
+- **Backend:** Python, Flask, Gunicorn
+- **Database:** SQLite
+- **AI inference:** Groq API
+- **Frontend:** HTML, CSS, JavaScript
+
+## Live demo
+
+https://bizpilot-ai-amd.onrender.com
+
+## Source code
+
+https://github.com/feresdouik/bizpilot-ai-amd
 
 ## Run locally
 
-1. Install Python 3.10+.
-2. Create and activate a virtual environment.
-3. Install dependencies: `pip install -r requirements.txt`.
-4. Set `GROQ_API_KEY` and `GROQ_MODEL` to enable AI chat.
-5. Run: `python app.py`.
-6. Open `http://localhost:5000`.
+Requirements: Python 3.10 or newer.
 
-On Windows PowerShell:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/feresdouik/bizpilot-ai-amd.git
+   cd bizpilot-ai-amd
+   ```
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Configure your Groq credentials as environment variables. Set `GROQ_API_KEY` to your private API key and `GROQ_MODEL` to a model currently available to your Groq account.
+4. Start the application:
+   ```bash
+   python app.py
+   ```
+5. Open http://localhost:5000 in your browser.
+
+### Windows PowerShell example
+
 ```powershell
 $env:GROQ_API_KEY="your_groq_api_key"
-$env:GROQ_MODEL="openai/gpt-oss-120b"
+$env:GROQ_MODEL="your_available_groq_model"
+python app.py
 ```
 
 ## Deploy on Render
 
-1. Connect this repository as a Render Web Service.
-2. Build command: `pip install -r requirements.txt`.
-3. Start command: `gunicorn app:app`.
+1. Create a new **Web Service** and connect this GitHub repository.
+2. Build command: `pip install -r requirements.txt`
+3. Start command: `gunicorn app:app`
 4. Add `GROQ_API_KEY` as a secret environment variable.
-5. Set `GROQ_MODEL` to a model currently available to your Groq account (for example, `openai/gpt-oss-120b`).
+5. Set `GROQ_MODEL` to a model available to your Groq account.
+6. Deploy the service and verify the `/health` endpoint.
 
-## Important prototype notes
+## Data and reporting notes
 
-- The initial orders are sample/demo records, not real customer data.
-- Delivered revenue counts only orders with status `Delivered`.
-- Pending and Processing amounts are shown separately as pipeline value; they are not revenue.
-- Profit, margin, return on ad spend, and stock recommendations require cost, advertising, and inventory data that this MVP does not yet collect.
-- The prototype currently uses US dollars (USD) as its default reporting currency. This is a reporting setting, not a currency conversion.
-- SQLite is suitable for this demonstration. On hosts with ephemeral filesystems, data can reset when the service restarts or redeploys. Use a managed persistent database before production use.
-- The assistant provides analysis and recommendations only. It does not autonomously execute payments, contact customers, or modify orders through chat.
-- Do not commit API keys or real customer personal data to GitHub.
+- The initial records are sample data for demonstration; they are not real customer orders.
+- Delivered revenue includes only orders whose status is `Delivered`.
+- Pending and Processing orders contribute to pipeline value, not delivered revenue.
+- All amounts in the current prototype are displayed and interpreted as **USD**. This is a reporting assumption, not a currency conversion.
+- Average delivered order value is calculated as delivered revenue divided by the number of delivered orders. It is not calculated using pending orders.
+
+## Current limitations
+
+- This is an MVP prototype and is not yet a production-grade business management system.
+- The assistant provides analysis and recommendations. It does not execute payments, contact customers, or change order records through chat.
+- Profit, margins, advertising return, inventory levels, and sales trends require additional cost, advertising, inventory, and date data that the current MVP does not collect.
+- SQLite is used for the demonstration. On hosting platforms with ephemeral storage, records may reset after a restart or redeployment. A persistent managed database is recommended before production use.
+- AI responses require a valid Groq API key and an available model configured in the deployment environment.
+- The current version uses hosted AI inference and does not require a local AMD GPU to run.
 
 ## Project status
 
-MVP prototype with a live demo. Validate the deployment and demo data before presenting.
+**Working MVP with a live deployment.** The project is under active development; verify the live service and sample data before a presentation.
+
+## Team
+
+**NexoraForge AI** — Solo project
