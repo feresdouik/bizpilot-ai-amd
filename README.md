@@ -6,7 +6,10 @@
 
 - Business dashboard with delivered revenue, total orders, and orders needing attention.
 - Order management: add orders and update their status.
-- AI business assistant powered by Groq-hosted Llama models.
+- AI business assistant powered by Groq-hosted models.
+- Product-level analysis separates delivered revenue from pending/processing pipeline value.
+- Aggregated business data is sent to the AI; customer names are not included in the AI prompt.
+- Markdown answers are rendered as readable headings, lists, and tables in the chat.
 - Demo data is inserted automatically on first launch.
 - Health endpoint: `/health`.
 
@@ -14,7 +17,7 @@
 
 - Python, Flask, Gunicorn
 - SQLite
-- Groq API (default model: `llama-3.3-70b-versatile`)
+- Groq API (configure `GROQ_MODEL` to a model available to your Groq account; current suggested value: `openai/gpt-oss-120b`)
 - HTML, CSS, JavaScript
 
 ## Run locally
@@ -22,29 +25,35 @@
 1. Install Python 3.10+.
 2. Create and activate a virtual environment.
 3. Install dependencies: `pip install -r requirements.txt`.
-4. Optional: set `GROQ_API_KEY` to enable AI chat.
+4. Set `GROQ_API_KEY` and `GROQ_MODEL` to enable AI chat.
 5. Run: `python app.py`.
 6. Open `http://localhost:5000`.
 
-On Windows PowerShell, set the key for the current terminal with:
-`$env:GROQ_API_KEY="your_groq_api_key"`
+On Windows PowerShell:
+```powershell
+$env:GROQ_API_KEY="your_groq_api_key"
+$env:GROQ_MODEL="openai/gpt-oss-120b"
+```
 
 ## Deploy on Render
 
-1. Create a new **Web Service** in Render and connect this repository.
-2. Render can detect the included `render.yaml`; alternatively use:
-   - Build command: `pip install -r requirements.txt`
-   - Start command: `gunicorn app:app`
-3. Add `GROQ_API_KEY` as a secret environment variable.
-4. Keep `GROQ_MODEL` as `llama-3.3-70b-versatile` unless you choose another model available to your Groq account.
+1. Connect this repository as a Render Web Service.
+2. Build command: `pip install -r requirements.txt`.
+3. Start command: `gunicorn app:app`.
+4. Add `GROQ_API_KEY` as a secret environment variable.
+5. Set `GROQ_MODEL` to a model currently available to your Groq account (for example, `openai/gpt-oss-120b`).
 
 ## Important prototype notes
 
 - The initial orders are sample/demo records, not real customer data.
+- Delivered revenue counts only orders with status `Delivered`.
+- Pending and Processing amounts are shown separately as pipeline value; they are not revenue.
+- Profit, margin, return on ad spend, and stock recommendations require cost, advertising, and inventory data that this MVP does not yet collect.
+- Currency is not assumed because no currency setting is stored.
 - SQLite is suitable for this demonstration. On hosts with ephemeral filesystems, data can reset when the service restarts or redeploys. Use a managed persistent database before production use.
-- The assistant currently provides analysis and recommendations only. It does not autonomously execute payments, contact customers, or modify orders through chat.
-- Do not commit API keys or customer personal data to GitHub.
+- The assistant provides analysis and recommendations only. It does not autonomously execute payments, contact customers, or modify orders through chat.
+- Do not commit API keys or real customer personal data to GitHub.
 
 ## Project status
 
-MVP implementation. Validate the app, configure the Groq secret, and publish a working live demo before submitting to the hackathon.
+MVP prototype with a live demo. Validate the deployment and demo data before presenting.
