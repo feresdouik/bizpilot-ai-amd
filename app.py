@@ -1,53 +1,197 @@
-import os,sqlite3,json
+import os
+import sqlite3
+import json
 from datetime import datetime
-from flask import Flask,request,jsonify,render_template
+from collections import defaultdict
+
+from flask import Flask, request, jsonify, render_template
 from groq import Groq
-app=Flask(__name__)
-DB=os.getenv("DATABASE_PATH","bizpilot.db")
+
+app = Flask(__name__)
+DB = os.getenv("DATABASE_PATH", "bizpilot.db")
+
+
 def conn():
- c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
+    c = sqlite3.connect(DB)
+    c.row_factory = sqlite3.Row
+    return c
+
+
 def init():
- with conn() as c:
-  c.execute("CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,customer TEXT,product TEXT,amount REAL,status TEXT,created_at TEXT)")
-  if c.execute("SELECT COUNT(*) FROM orders").fetchone()[0]==0:
-   c.executemany("INSERT INTO orders(customer,product,amount,status,created_at) VALUES(?,?,?,?,?)",[(a,b,v,s,datetime.utcnow().isoformat()) for a,b,v,s in [("Amira","Streetwear hoodie",89,"Delivered"),("Youssef","Classic T-shirt",45,"Pending"),("Sarra","Oversized shirt",65,"Processing"),("Malek","Cargo pants",110,"Delivered")]])
+    with conn() as c:
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS orders(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                customer TEXT,
+                product TEXT,
+                amount REAL,
+                status TEXT,
+                created_at TEXT
+            )
+        """)
+        if c.execute("SELECT COUNT(*) FROM orders").fetchone()[0] == 0:
+            demo = [
+                ("Amira", "Streetwear hoodie", 89, "Delivered"),
+                ("Youssef", "Classic T-shirt", 45, "Pending"),
+                ("Sarra", "Oversized shirt", 65, "Processing"),
+                ("Malek", "Cargo pants", 110, "Delivered"),
+            ]
+            c.executemany(
+                "INSERT INTO orders(customer,product,amount,status,created_at) VALUES(?,?,?,?,?)",
+                [(a, b, v, s, datetime.utcnow().isoformat()) for a, b, v, s in demo],
+            )
+
+
 @app.get("/")
-def home(): return render_template("index.html")
+def home():
+    return render_template("index.html")
+
+
 @app.get("/health")
-def health(): return jsonify(status="ok",app="BizPilot AI")
+def health():
+    return jsonify(status="ok", app="BizPilot AI")
+
+
+def get_orders():
+    with conn() as c:
+        return [dict(x) for x in c.execute("SELECT * FROM orders ORDER BY id DESC")]
+
+
+def summarize(orders):
+    by_product = defaultdict(lambda: {
+        "delivered_revenue": 0.0,
+        "pipeline_value": 0.0,
+        "cancelled_value": 0.0,
+        "delivered_orders": 0,
+        "pipeline_orders": 0,
+        "cancelled_orders": 0,
+    })
+    for order in orders:
+        item = by_product[order["product"]]
+        amount = float(order["amount"] or 0)
+        status = order["status"]
+        if status == "Delivered":
+            item["delivered_revenue"] += amount
+            item["delivered_orders"] += 1
+        elif status in ("Pending", "Processing"):
+            item["pipeline_value"] += amount
+            item["pipeline_orders"] += 1
+        elif status == "Cancelled":
+            item["cancelled_value"] += amount
+            item["cancelled_orders"] += 1
+
+    products = []
+    for name, values in by_product.items():
+        products.append({"product": name, **{
+            key: round(value, 2) if key.endswith("_value") or key.endswith("_revenue") else value
+            for key, value in values.items()
+        }})
+    products.sort(key=lambda x: x["delivered_revenue"], reverse=True)
+
+    delivered = [o for o in orders if o["status"] == "Delivered"]
+    pipeline = [o for o in orders if o["status"] in ("Pending", "Processing")]
+    cancelled = [o for o in orders if o["status"] == "Cancelled"]
+    return {
+        "total_orders": len(orders),
+        "delivered_orders": len(delivered),
+        "pipeline_orders": len(pipeline),
+        "cancelled_orders": len(cancelled),
+        "delivered_revenue": round(sum(float(o["amount"] or 0) for o in delivered), 2),
+        "pipeline_value": round(sum(float(o["amount"] or 0) for o in pipeline), 2),
+        "cancelled_value": round(sum(float(o["amount"] or 0) for o in cancelled), 2),
+        "products": products,
+    }
+
+
 @app.get("/api/summary")
 def summary():
- with conn() as c: rows=[dict(x) for x in c.execute("SELECT * FROM orders ORDER BY id DESC")]
- return jsonify(orders=rows,revenue=round(sum(x["amount"] for x in rows if x["status"]=="Delivered"),2),order_count=len(rows),pending=sum(x["status"] in ("Pending","Processing") for x in rows))
+    orders = get_orders()
+    stats = summarize(orders)
+    return jsonify(
+        orders=orders,
+        revenue=stats["delivered_revenue"],
+        order_count=stats["total_orders"],
+        pending=stats["pipeline_orders"],
+        **stats,
+    )
+
+
 @app.post("/api/orders")
 def add():
- d=request.get_json(force=True)
- try: amount=float(d.get("amount",0))
- except: amount=0
- customer=str(d.get("customer","")).strip(); product=str(d.get("product","")).strip()
- if not customer or not product or amount<=0:return jsonify(error="Enter customer, product and a positive amount."),400
- with conn() as c: cur=c.execute("INSERT INTO orders(customer,product,amount,status,created_at) VALUES(?,?,?,?,?)",(customer,product,amount,"Pending",datetime.utcnow().isoformat()))
- return jsonify(id=cur.lastrowid),201
+    d = request.get_json(force=True)
+    try:
+        amount = float(d.get("amount", 0))
+    except (TypeError, ValueError):
+        amount = 0
+    customer = str(d.get("customer", "")).strip()
+    product = str(d.get("product", "")).strip()
+    if not customer or not product or amount <= 0:
+        return jsonify(error="Enter customer, product and a positive amount."), 400
+    with conn() as c:
+        cur = c.execute(
+            "INSERT INTO orders(customer,product,amount,status,created_at) VALUES(?,?,?,?,?)",
+            (customer, product, amount, "Pending", datetime.utcnow().isoformat()),
+        )
+    return jsonify(id=cur.lastrowid), 201
+
+
 @app.patch("/api/orders/<int:i>")
 def update(i):
- status=request.get_json(force=True).get("status")
- if status not in ("Pending","Processing","Delivered","Cancelled"):return jsonify(error="Invalid status"),400
- with conn() as c:
-  cur=c.execute("UPDATE orders SET status=? WHERE id=?",(status,i))
-  if not cur.rowcount:return jsonify(error="Order not found"),404
- return jsonify(ok=True)
+    status = request.get_json(force=True).get("status")
+    if status not in ("Pending", "Processing", "Delivered", "Cancelled"):
+        return jsonify(error="Invalid status"), 400
+    with conn() as c:
+        cur = c.execute("UPDATE orders SET status=? WHERE id=?", (status, i))
+        if not cur.rowcount:
+            return jsonify(error="Order not found"), 404
+    return jsonify(ok=True)
+
+
 @app.post("/api/chat")
 def chat():
- msg=str(request.get_json(force=True).get("message","")).strip()
- if not msg:return jsonify(error="Enter a message"),400
- with conn() as c: rows=[dict(x) for x in c.execute("SELECT customer,product,amount,status FROM orders")]
- data={"orders":rows,"total_orders":len(rows),"delivered_revenue":sum(x["amount"] for x in rows if x["status"]=="Delivered")}
- key=os.getenv("GROQ_API_KEY")
- if not key:return jsonify(reply="AI is not connected yet. Add GROQ_API_KEY to the deployment environment. Your dashboard and order manager work without it.")
- try:
-  client=Groq(api_key=key); out=client.chat.completions.create(model=os.getenv("GROQ_MODEL","llama-3.3-70b-versatile"),messages=[{"role":"system","content":"You are BizPilot AI, a concise small-business operations assistant. Analyze only the supplied data; do not invent figures or claim to perform actions. Currency is unspecified. Business data: "+json.dumps(data)},{"role":"user","content":msg}],temperature=.3,max_tokens=700)
-  return jsonify(reply=out.choices[0].message.content)
- except Exception:
-  app.logger.exception("Groq error");return jsonify(error="AI service unavailable. Check GROQ_API_KEY and GROQ_MODEL."),502
+    msg = str(request.get_json(force=True).get("message", "")).strip()
+    if not msg:
+        return jsonify(error="Enter a message"), 400
+
+    orders = get_orders()
+    stats = summarize(orders)
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        return jsonify(reply="AI is not connected yet. Add GROQ_API_KEY to the deployment environment. Your dashboard and order manager work without it.")
+
+    model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    system_prompt = (
+        "You are BizPilot AI, a careful business analyst for small businesses. "
+        "Use only the supplied business snapshot. "
+        "IMPORTANT DEFINITIONS: delivered_revenue includes ONLY Delivered orders. "
+        "pipeline_value is Pending plus Processing orders and is NOT earned revenue. "
+        "Cancelled orders are excluded from revenue and pipeline. Never add pipeline value to delivered revenue. "
+        "The dataset has no costs, fees, ad spend, stock quantities, currency, dates or customer-contact permissions. "
+        "Therefore do not calculate profit, margin, ROI, a sales trend, or a currency; explicitly say what extra data is needed. "
+        "Do not recommend contacting named customers, sending emails, applying discounts, or claim to execute actions. "
+        "Give practical low-risk recommendations that can be done manually, and label assumptions clearly. "
+        "When ranking products, rank by delivered revenue and separately mention pipeline value. "
+        "Be concise and format answers in Markdown with headings, bullets, and a compact table when useful. "
+        "Business snapshot (aggregated; no customer names): " + json.dumps(stats, ensure_ascii=False)
+    )
+    try:
+        client = Groq(api_key=key)
+        out = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": msg},
+            ],
+            temperature=0.2,
+            max_tokens=900,
+        )
+        return jsonify(reply=out.choices[0].message.content)
+    except Exception:
+        app.logger.exception("Groq error")
+        return jsonify(error="AI service unavailable. Check the Render logs for the Groq error."), 502
+
+
 init()
-if __name__=="__main__":app.run(host="0.0.0.0",port=int(os.getenv("PORT",5000)))
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
