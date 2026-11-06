@@ -61,6 +61,10 @@ async function load() {
     $("#revenue").textContent = money(data.revenue);
     $("#count").textContent = data.order_count ?? 0;
     $("#pending").textContent = data.pending ?? 0;
+    $("#deliveredOrders").textContent = data.delivered_orders ?? 0;
+    $("#pipelineValue").textContent = money(data.pipeline_value);
+    $("#cancelledOrders").textContent = data.cancelled_orders ?? 0;
+    $("#averageOrderValue").textContent = money(data.average_delivered_order_value);
     $("#orderRows").innerHTML = data.orders.map((o) =>
       "<tr><td>" + esc(o.customer) + "</td><td>" + esc(o.product) +
       "</td><td class='amount'>" + money(o.amount) +
