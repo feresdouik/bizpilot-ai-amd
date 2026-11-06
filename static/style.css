@@ -2,3 +2,19 @@
 
 /* Readable AI answer formatting */
 .bubble.assistant{max-width:100%;overflow-wrap:anywhere}.bubble.assistant p{color:var(--text);margin:8px 0}.bubble.assistant h3,.bubble.assistant h4,.bubble.assistant h5{color:#ff8b93;margin:14px 0 7px}.bubble.assistant ul,.bubble.assistant ol{padding-left:22px;margin:8px 0}.bubble.assistant li{margin:5px 0}.bubble.assistant strong{color:#fff}.bubble.assistant code{background:#0c111a;padding:2px 5px;border-radius:4px}.answer-table-wrap{overflow-x:auto;margin:12px 0}.answer-table{min-width:420px;width:100%;border-collapse:collapse}.answer-table th,.answer-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left}.answer-table th{color:#ff9aa1;background:#0c111a}.answer-table td{color:var(--text)}
+
+
+/* Order table layout and inline status editor */
+#orders .tablewrap{width:100%;overflow-x:auto;margin-top:18px}
+#orders table{width:100%;min-width:680px;border-collapse:collapse;table-layout:auto}
+#orders th{padding:15px 12px;text-align:left;white-space:nowrap}
+#orders td{padding:15px 12px;vertical-align:middle;border-bottom:1px solid var(--line)}
+#orders tbody tr:hover{background:rgba(255,255,255,.025)}
+#orders td.amount{font-variant-numeric:tabular-nums;white-space:nowrap}
+#orders td.actions{display:flex;align-items:center;gap:8px;white-space:nowrap}
+#orders select{background:#0c111a;color:var(--text);border:1px solid #354052;border-radius:7px;padding:9px 10px;min-width:125px}
+#orders .save-status{padding:9px 13px;background:#b83e4a}
+#orders .save-status:disabled{opacity:.65;cursor:wait}
+#orderform{padding:14px;background:#101722;border:1px solid var(--line);border-radius:10px}
+#orderform[hidden]{display:none}
+@media(max-width:700px){#orders{padding:15px}#orders .bar{align-items:flex-start;flex-wrap:wrap}}
